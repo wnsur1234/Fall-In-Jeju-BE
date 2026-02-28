@@ -1,451 +1,158 @@
-# be-server
+# 🌴 제주 여행 플래너 백엔드
 
+제주 여행객을 대상으로 **AI 기반 여행 일정 생성**, **실시간 재난 문자 알림**,  
+**이동 경로 제공**, **챗봇 상담** 기능을 제공하는 백엔드 서버입니다.
 
+약 **3주간의 단기 집중 개발 프로젝트**로,  
+기능 단위 개발 → 통합 → 배포까지의 전체 백엔드 사이클을 경험하는 것을 목표로 했습니다.
 
-# 1. 📁 전체 폴더 구조
+---
 
-> Controller / Service / Model / Infrastructure 계층 분리 가이드 (참고용)
+## 🛠 Tech Stack
 
+### Language & Framework
+- Java 21
+- Spring Boot 3.3.6
+- Spring MVC
+- Spring Data JPA
 
+### Authentication & Security
+- AWS Cognito (Google OAuth)
+- JWT 기반 인증 (Cognito Access Token 활용)
 
+### Database
+- RDBMS: JPA 기반 관계형 데이터베이스
+- NoSQL: DynamoDB
+    - 챗봇 대화 로그
+    - 일부 비정형 데이터 저장
 
+### Infra / External
+- AWS
+- Docker
+- AI Agent Server (여행 플래너 / 챗봇 처리)
+- 행정안전부 재난문자 Open API
+- TMAP API (도보 / 자동차 / 대중교통)
 
-```
-md
+---
 
-src
+## 🧩 Core Features
 
-└── main
+### 1. 여행 플래너 요청 수신 (FE → BE)
+- 사용자의 여행 조건(기간, 인원, 테마 등)을 요청으로 수신
+- 입력값 검증 및 요청 구조 표준화
 
-   └── java
+### 2. 여행 플래너 요청 송신 (BE → Agent)
+- 정제된 요청을 AI Agent 서버로 전달
+  장-
+- Agent 응답을 도메인 구조로 변환하여 FE에 반환
 
-       └── com.project
+---
 
-           ├── controller
+### 3. 챗봇 요청 수신 (FE → BE)
+- 자유 질의 기반 여행 상담 요청 처리
+- 사용자 인증 정보와 함께 요청 수신
 
-           │   ├── user
+### 4. 챗봇 요청 송신 (BE → Agent)
+- 챗봇 질의를 Agent로 전달
+- 응답 결과를 DynamoDB에 로그로 저장
 
-           │   │   └── UserController.java
+---
 
-           │   └── post
+### 5. 실시간 재난 문자 알림
+- Server-Sent Events(SSE) 기반 실시간 알림
+- 재난 문자 API 주기적 수집
+- 신규 재난 발생 시 즉시 클라이언트 전송
+- 연결 유지 목적의 주기적 ping 전송
 
-           │       └── PostController.java
+---
 
-           │
+### 6. 추천 여행지 평점 내역 제공
+- 추천된 여행지에 대한 사용자 평점 데이터 관리
+- 추후 개인화 추천을 고려한 구조 설계
 
-           ├── service
+---
 
-           │   ├── user
+### 7. 이동 경로 제공
+- 단일 / 다중 여행지 이동 경로 지원
+- 이동 수단:
+    - 도보
+    - 자동차
+    - 대중교통
+- TMAP API 연동
+- 거리, 소요 시간 기반 경로 응답
 
-           │   │   ├── UserService.java
+---
 
-           │   │   └── UserServiceImpl.java
+### 8. 여행 플래너 저장 (마이페이지)
+- 생성된 여행 플래너 저장
+- 사용자별 여행 기록 조회
+- 인증 사용자만 접근 가능
 
-           │   └── post
+---
 
-           │       ├── PostService.java
+### 9. Google 로그인 및 회원가입
+- AWS Cognito + Google OAuth 연동
+- Cognito Access Token을 JWT로 활용
+- 서버는 토큰 검증 및 사용자 식별에 집중
 
-           │       └── PostServiceImpl.java
+---
 
-           │
+## 🔐 Authentication Flow
 
-           ├── model
+1. 사용자가 Google 로그인 시도
+2. AWS Cognito에서 인증 처리
+3. FE가 Cognito Access Token 획득
+4. 이후 모든 API 요청에 JWT 포함
+5. BE는 토큰 검증 후 요청 처리
 
-           │   ├── domain
+---
 
-           │   │   ├── user
+## 🗂 Database Design Overview
 
-           │   │   │   └── User.java
+### RDBMS (JPA)
+- 사용자 기본 정보
+- 여행 플래너
+- 여행지 및 평점 데이터
 
-           │   │   └── post
+### DynamoDB
+- 챗봇 대화 로그
+- 비정형 데이터 및 빠른 조회 목적
 
-           │   │       └── Post.java
+---
 
-           │   │
+## 🌿 Git Branch Strategy
 
-           │   ├── dto
+| 브랜치 | 역할 |
+|------|------|
+| feat/* | 기능 단위 개발 |
+| dev | 기능 통합 및 테스트 |
+| main | 배포 브랜치 |
 
-           │   │   ├── user
+- 모든 기능은 `feat` 브랜치에서 개발
+- `dev` 브랜치에서 통합 검증
+- 안정화 후 `main` 반영
 
-           │   │   │   ├── UserRequestDto.java
+---
 
-           │   │   │   └── UserResponseDto.java
+## ⏱ Development Period
 
-           │   │   └── post
+- 총 개발 기간: 약 3주
+- 단기 일정 특성상:
+    - MVP 우선 개발
+    - 빠른 기능 검증 및 반복 개선
+    - 핵심 기능 중심 설계
 
-           │   │       ├── PostRequestDto.java
+---
 
-           │   │       └── PostResponseDto.java
+## 📌 Architecture Highlights
 
-           │   │
+- FE ↔ BE ↔ Agent 구조 분리
+- 인증 책임과 비즈니스 로직 분리
+- 실시간 기능(SSE)과 일반 REST API 병행
+- 관계형 DB + NoSQL 혼합 사용
 
-           │   ├── dao
 
-           │   │   └── PostWithAuthorDao.java
+---
 
-           │   │
-
-           │   ├── jpa
-
-           │   │   ├── user
-
-           │   │   │   └── UserEntity.java
-
-           │   │   └── post
-
-           │   │       └── PostEntity.java
-
-           │   │
-
-           │   └── mapper
-
-           │       ├── user
-
-           │       │   └── UserMapper.java
-
-           │       └── post
-
-           │           └── PostMapper.java
-
-           │
-
-           ├── infrastructure
-
-           │   ├── repository
-
-           │   │   ├── user
-
-           │   │   │   └── UserJpaRepository.java
-
-           │   │   └── post
-
-           │   │       └── PostJpaRepository.java
-
-           │   │
-
-           │   ├── persistence
-
-           │   │   ├── user
-
-           │   │   │   └── UserRepositoryImpl.java
-
-           │   │   └── post
-
-           │   │       └── PostRepositoryImpl.java
-
-           │   │
-
-           │   └── config
-
-           │       └── JpaConfig.java
-
-           │
-
-           └── common
-
-               ├── exception
-
-               ├── util
-
-               └── constants
-
-```
-
-
-
-# 2. 🎯 계층별 역할 정의
-
-## 2.1 Controller Layer
-
-
-
-#### HTTP 요청을 처리하고 DTO ↔ Service 간 데이터를 전달하는 계층
-
-
-
-### ✔ 역할
-
-
-
-- REST API 엔드포인트 제공
-
-
-
-- RequestDto → Domain 변환 요청
-
-
-
-- Service 호출
-
-
-
-- Domain → ResponseDto 변환
-
-
-
-### ✔ 포함 파일
-
-
-
-- UserController
-
-
-
-- PostController
-
-
-
-### ❌ 포함하면 안 되는 것
-
-
-
-- 비즈니스 로직
-
-
-
-- DB 접근 로직
-
-
-
-## 2.2 Service Layer
-
-
-
-#### 도메인 규칙을 수행하고 비즈니스 로직을 처리하는 계층
-
-
-
-### ✔ 역할
-
-
-
-- 트랜잭션 관리
-
-
-
-- 도메인 로직 실행
-
-
-
-- Repository 호출
-
-
-
-- Domain 객체 조작
-
-
-
-### ✔ 포함 파일
-
-
-
-- UserService, UserServiceImpl
-
-
-
-- PostService, PostServiceImpl
-
-
-
-### ❌ 포함하면 안 되는 것
-
-
-
-- DTO/Entity 직접 변환 (Mapper로 위임)
-
-
-
-- DB 조회 쿼리 작성
-
-
-
-## 2.3 Model Layer
-
-
-
-#### 도메인 중심 객체들과 표현 객체들을 모아둔 계층
-
-
-
-### a) Domain (핵심 비즈니스 모델)
-
-
-- 비즈니스 규칙을 담은 순수 객체
-
-
-- JPA, Spring, 기술 의존성 없음
-
-
-```java
-
-public class User {
-
-   private Long id;
-
-   private String nickname;
-
-
-
-   public void changeNickname(String nickname) {
-
-       this.nickname = nickname;
-
-   }
-
-}
-
-```
-
-
-
-### b) DTO (계층 간 데이터 전달)
-
-
-
-#### Request/Response 모델
-
-
-
-#### Controller와 직접 연결
-
-
-
-- UserRequestDto, UserResponseDto
-
-- PostRequestDto, PostResponseDto
-
-
-
-### c) DAO (조회 전용 복합 데이터)
-
-
-
-#### JOIN 결과와 같은 특수 조회용 객체
-
-
-
-- Domain 또는 Entity와 일치할 필요 없음
-
-
-
-- PostWithAuthorDao
-
-
-
-### d) JPA Entity (영속성 모델)
-
-
-
-#### DB 테이블 매핑용 객체
-
-
-
-- Service/Controller로 직접 노출하지 않음
-
-
-
-- UserEntity, PostEntity
-
-
-
-### e) Mapper (MapStruct 기반 매핑)
-
-
-
-#### DTO ↔ Domain ↔ Entity 변환 자동화
-
-
-
-- UserMapper, PostMapper
-
-
-
-## 2.4 Infrastructure Layer
-
-
-
-### 데이터 접근, 외부 시스템 연동, 기술 구현 계층
-
-
-
-### ✔ Repository (JPA 인터페이스)
-
-
-
-- Spring Data JPA 기반 CRUD 인터페이스
-
-
-
-- UserJpaRepository, PostJpaRepository
-
-
-
-### ✔ Persistence (도메인 저장소 구현체)
-
-
-
-- Domain ↔ Entity 매핑
-
-
-
-- QueryDSL, JPA 동작 수행
-
-
-
-- UserRepositoryImpl, PostRepositoryImpl
-
-
-
-### ✔ Config (설정 파일)
-
-
-
-- JPA 설정
-
-
-
-- Redis, Kafka, Security 등 환경 설정
-
-
-
-- JpaConfig
-
-
-
-# 3. 🧩 DTO / DAO / Domain / Entity / Mapper 구분
-
-아래 표는 백엔드 구조에서 사용되는 객체들의 \*\*역할/위치/로직 포함 여부\*\*를 정리한 내용입니다.
-
-
-
-| 타입 | 목적 | 위치 | 로직 포함 여부 |
-
-|------|-----------------------------|----------------|----------------|
-
-| \*\*DTO\*\* | 요청·응답 데이터 전달 | `model/dto` | ❌ |
-
-| \*\*DAO\*\* | 복합 조회 결과(조회 전용 구조) | `model/dao` | ❌ |
-
-| \*\*Domain\*\* | 비즈니스 핵심 모델(상태 + 행위) | `model/domain` | ✔ |
-
-| \*\*Entity\*\* | DB 테이블 매핑(JPA) | `model/jpa` | ❌ |
-
-| \*\*Mapper\*\* | DTO ↔ Domain ↔ Entity 변환 | `model/mapper` | ✔ (변환 로직) |
-
-
-
-# 4. 🔥 폴더 구조 설계 원칙
-
-#### ✔ 1) Controller는 요청만 조정한다 — “Thin Controller”
-
-#### ✔ 2) Service는 로직만 수행한다 — “Fat Service”
-
-#### ✔ 3) Domain은 상태와 규칙을 갖는다
-
-#### ✔ 4) Entity는 영속성만 담당한다
-
-#### ✔ 5) Repository는 DB 접근에만 집중한다
-
-#### ✔ 6) Mapper로 변환 책임을 단일화한다
-
-#### ✔ 7) DAO는 복잡한 조회에만 사용한다
+## Architecture
+<img width="1070" height="603" alt="Image" src="https://github.com/user-attachments/assets/04577bbb-68db-4066-b4cf-2be5e963a709" />
