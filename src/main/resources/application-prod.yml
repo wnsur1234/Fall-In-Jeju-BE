@@ -1,0 +1,72 @@
+spring:
+  config:
+    activate:
+      on-profile: production
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # url, username, password는 환경변수(Secret)에서 자동으로 매핑됨
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  session:
+    store-type: none
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+
+#  data:
+#    redis:
+#      host: master.redis-cluster.fejpnh.apn2.cache.amazonaws.com
+#      port: 6379
+#      timeout: 2000
+#      ssl:
+#        enabled: false
+
+aws:
+  region: ${AWS_REGION}
+  dynamodb:
+    table-name: fall-in-jeju
+  bedrock:
+    api-gateway-url: ${BEDROCK_AGENT_API_GATEWAY_URL}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+cognito:
+  user-pool-id: ${COGNITO_USER_POOL_ID}
+  issuer: ${COGNITO_ISSUER}
+  jwks-url: ${COGNITO_JWKS_URL}
+  client-id: ${COGNITO_CLIENT_ID}
+  client-secret: ${COGNITO_CLIENT_SECRET}
+  redirect-uri: ${COGNITO_REDIRECT_URI}
+  domain: ${COGNITO_DOMAIN}
+
+origin:
+  verify-secret: ${ORIGIN_VERIFY_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus # health 엔드포인트 노출
+  endpoint:
+    health:
+      show-details: always # 상세 정보 항상 노출
+  health:
+    redis:
+      enabled: false
+
+tmap:
+  base-url: https://apis.openapi.sk.com
+  app-key: ${TMAP_APP_KEY}
+server:
+  port: 8001

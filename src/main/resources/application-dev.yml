@@ -1,0 +1,55 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # url, username, password는 환경변수(Secret)에서 자동으로 매핑됨 (Spring Boot Convention)
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  autoconfigure:
+     exclude:
+       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+       - org.springframework.boot.autoconfigure.session.SessionAutoConfiguration
+
+aws:
+  region: ${AWS_REGION} # DynamoDB Secret에서 주입됨
+  dynamodb:
+    table-name: four-in-jeju-dev
+
+#  bedrock:
+#    agent-id: ${BEDROCK_AGENT_ID}
+#    alias-id: ${BEDROCK_ALIAS_ID}
+#    region : ${AGENT_REGION}
+
+management:
+  health:
+    redis:
+      enabled: false
+
+jwt:
+  secret: ${JWT_SECRET}
+
+cognito:
+  user-pool-id: ${COGNITO_USER_POOL_ID}
+  issuer: ${COGNITO_ISSUER}
+  jwks-url: ${COGNITO_JWKS_URL}
+  client-id: ${COGNITO_CLIENT_ID}
+  client-secret: ${COGNITO_CLIENT_SECRET}
+  redirect-uri: ${COGNITO_REDIRECT_URI}
+  domain: ${COGNITO_DOMAIN}
+
+origin:
+  verify-secret: ${ORIGIN_VERIFY_SECRET}
+
+server:
+  port: 8001

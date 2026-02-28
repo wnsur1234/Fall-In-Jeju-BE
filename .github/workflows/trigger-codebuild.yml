@@ -1,0 +1,120 @@
+name: Build & Deploy (GitOps)
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ap-northeast-2
+      AWS_ACCOUNT_ID: "310688446727"
+      IMAGE_REPO_NAME: "backend-app"
+      CODEBUILD_PROJECT_NAME: "backend-build-project"
+      MANIFEST_REPO: "fall-in-jeju/be-manifest"
+      MANIFEST_BRANCH: "main"
+      MANIFEST_PATH: "k8s-manifests/overlays/prod/deployment-patch.yml"
+
+    steps:
+      # 0) app repo checkout (sha 확보용)
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      # 1) AWS 인증
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 2) 사용할 image tag 계산 (CodeBuild와 동일 기준: commit sha 7자리)
+      - name: Compute image tag
+        id: vars
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "REPO_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_REPO_NAME}" >> $GITHUB_OUTPUT
+
+      # 3) CodeBuild 트리거 (source-version에 전체 sha 전달)
+      - name: Trigger CodeBuild
+        id: start_build
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name "${CODEBUILD_PROJECT_NAME}" \
+            --source-version "${GITHUB_SHA}" \
+            --query 'build.id' --output text)
+          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "Started CodeBuild: $BUILD_ID"
+
+      # 4) CodeBuild 완료 대기 (필수)
+      - name: Wait for CodeBuild to finish
+        run: |
+          BUILD_ID="${{ steps.start_build.outputs.BUILD_ID }}"
+          echo "Waiting for CodeBuild: $BUILD_ID"
+
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds \
+              --ids "$BUILD_ID" \
+              --query 'builds[0].buildStatus' \
+              --output text)
+
+            echo "Status: $STATUS"
+
+            if [ "$STATUS" = "SUCCEEDED" ]; then
+              break
+            fi
+
+            if [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "FAULT" ] || [ "$STATUS" = "STOPPED" ] || [ "$STATUS" = "TIMED_OUT" ]; then
+              echo "CodeBuild failed with status: $STATUS"
+              exit 1
+            fi
+
+            sleep 15
+          done
+
+      # 5) yq 설치 (필수)
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+          yq --version
+
+      # 6) manifest repo checkout (여기부터 “배포 상태 기록”)
+      - name: Checkout manifest repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.MANIFEST_REPO }}
+          ref: ${{ env.MANIFEST_BRANCH }}
+          token: ${{ secrets.MANIFEST_REPO_TOKEN }}
+          path: manifest
+
+      # 7) deployment image tag 업데이트
+      - name: Update image tag in manifest
+        working-directory: manifest
+        run: |
+          IMAGE="${{ steps.vars.outputs.REPO_URI }}:${{ steps.vars.outputs.SHORT_SHA }}"
+          echo "Updating image to: $IMAGE"
+          yq e ".spec.template.spec.containers[0].image = \"$IMAGE\"" -i "${MANIFEST_PATH}"
+
+      # 8) 커밋 & 푸시 (변경 없으면 스킵)
+      - name: Commit & push manifest
+        working-directory: manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions@github.com"
+
+          git add "${MANIFEST_PATH}"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(prod): bump image to ${{ steps.vars.outputs.SHORT_SHA }}"
+          git push origin "${MANIFEST_BRANCH}"
