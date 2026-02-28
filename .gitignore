@@ -7,6 +7,7 @@ build/
 .env
 .md
 !README.md
+
 ### STS ###
 .apt_generated
 .classpath
